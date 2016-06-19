@@ -21,11 +21,11 @@ class Communication
   Communication(void);
   void begin();
   int initializeServer(String code);
-  bool waitForData(Settings* settings);
+  int waitForData(Settings* settings);
   int initializeClient(Settings* settings);
   int writeDatabase(Settings settings,float curTemp, bool coolerStatus,bool heaterStatus);
   int readDatabase(Settings* settings);
-  String* sendData(String command, String terminator="OK", int cicles=10, int timeout=2000); 
+  String sendData(String command, String terminator="OK",String starter="", int cicles=10, int timeout=1000); 
 };
 
 #endif

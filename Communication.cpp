@@ -31,23 +31,18 @@ int Communication::initializeServer(String code)
   return error;
 }
 
-bool Communication::waitForData(Settings* settings)
+int Communication::waitForData(Settings* settings)
 {
-  error=0;
-  
-  if (esp8266.find("+IPD,"))// &&Serial.find("SSID=")&&Serial.find("Password="))
+  if (esp8266.find("+IPD,"))
   {
-    //int connectionId = esp8266.read() - 48;
-    char connectionId = esp8266.read();
+    delay(300);
     String request="";
 
     long int time = millis();
-    while ( ((time + 3000) > millis())&&(strlen(request.c_str())<=200))
+    while ( ((time + 1000) > millis())&&(strlen(request.c_str())<=100))
     {
-      //while (esp8266.available()&&(strlen(request.c_str())<=300))
-      while (esp8266.available()&&(strlen(request.c_str())<=200))
+      while (esp8266.available()&&(strlen(request.c_str())<=100))
       {
-        //char letter=esp8266.read();
         char letter=esp8266.read();
         request+=(char)letter;
       }
@@ -80,17 +75,10 @@ bool Communication::waitForData(Settings* settings)
       //Serial.println("PASSWORD:"+request.substring(passwordStartIndex+9,passwordEndIndex));
       settings->setPassword(request.substring(passwordStartIndex+9,passwordEndIndex));
     }
- 
-    String cipSend = "AT+CIPSEND=";
-    cipSend += connectionId;
-    cipSend += ",";
-    cipSend += "4";
-    cipSend += "\r\n";
-
-    sendData(cipSend,">");
-    sendData("OK\r\n","",1,500);
+    
+    return 1;
   }
-  return true;
+  return 0;
 }
 
 int Communication::initializeClient(Settings* settings)
@@ -99,7 +87,7 @@ int Communication::initializeClient(Settings* settings)
     {
       waitForData(settings);
       error=0;
-      sendData("AT+CWJAP_DEF=\""+settings->getSSID()+"\",\""+settings->getPassword()+"\"\r\n","OK",1,500);
+      sendData("AT+CWJAP_DEF=\""+settings->getSSID()+"\",\""+settings->getPassword()+"\"\r\n","OK","",1,500);
     }while(error>0); //  connect to router
     
     settings->writeStringEEPROM(52, settings->getSSID().c_str()); 
@@ -142,8 +130,7 @@ int Communication::writeDatabase(Settings settings,float curTemp, bool coolerSta
   msg+="Connection: Keep-Alive\r\n\r\n";
   sendData("AT+CIPSTART=4,\"TCP\",\""+serverIP+"\",80\r\n");
   sendData("AT+CIPSEND=4,"+String(strlen(msg.c_str()))+"\r\n", ">");
-  String* resposta;
-  resposta=sendData(msg);
+  sendData(msg,"New settings registered!","{");
   
   sendData("AT+CIPCLOSE=4\r\n");
   return error;
@@ -163,21 +150,21 @@ int Communication::readDatabase(Settings* settings)
   msg+="Connection: Keep-Alive\r\n\r\n";
   sendData("AT+CIPSTART=4,\"TCP\",\""+serverIP+"\",80\r\n");
   sendData("AT+CIPSEND=4,"+String(strlen(msg.c_str()))+"\r\n", ">");
-  String* resposta;
-  resposta=sendData(msg,"}");
+  String resposta;
+  resposta=sendData(msg,"}","{");
   sendData("AT+CIPCLOSE=4\r\n");
-  resposta->replace('.',',');
-  int maxTempStartIndex=resposta->indexOf("\"Limits\":[\"");
-  int separatorIndex=resposta->indexOf("\",\"");
-  int minTempEndIndex=resposta->indexOf("\"]");
+  resposta.replace('.',',');
+  int maxTempStartIndex=resposta.indexOf("\"Limits\":[\"");
+  int separatorIndex=resposta.indexOf("\",\"");
+  int minTempEndIndex=resposta.indexOf("\"]");
 
-  settings->setLimits(atof(resposta->substring(maxTempStartIndex+12,separatorIndex).c_str()),atof(resposta->substring(separatorIndex+3,minTempEndIndex).c_str()));
-  Serial.println(settings->getMaxTemp());
-  Serial.println(settings->getMinTemp());
+  settings->setLimits(atof(resposta.substring(maxTempStartIndex+11,separatorIndex).c_str()),atof(resposta.substring(separatorIndex+3,minTempEndIndex).c_str()));
+  /*Serial.println(settings->getMaxTemp());
+  Serial.println(settings->getMinTemp());*/
   return error;
 }
 
-String* Communication::sendData(String command, String terminator, int cicles,int timeout)
+String Communication::sendData(String command, String terminator, String starter, int cicles,int timeout)
 {
   long int time = millis();
   String response = "";
@@ -187,6 +174,9 @@ String* Communication::sendData(String command, String terminator, int cicles,in
   //esp8266.print(command);
   esp8266.print(command);
   long int start = millis();
+  char buf[15];
+  starter.toCharArray(buf,15);
+  esp8266.find(buf);
   while ( (start + timeout) > millis())
   {
     //while (esp8266.available())
@@ -204,11 +194,11 @@ String* Communication::sendData(String command, String terminator, int cicles,in
   }
 
     if((response.indexOf(terminator)!=-1)&&(terminator!=""))
-        return &response;
+        return response;
   }
 
   error++;
-  return &response;
+  return response;
 }
 
 

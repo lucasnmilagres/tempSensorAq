@@ -8,13 +8,12 @@
 
 #define DHTPIN A1     // what digital pin we're connected to
 #define DHTTYPE DHT11 // DHT 11
-#define READTIME 15 //20 minutes in secs
+#define READTIME 1200 //20 minutes in secs
 #define WRITETIME 3600  //1h in secs
 #define INDICATOR LED_BUILTIN
 #define RST_BTN 6
 
 //Variables
-int accessPointTickets;
 int readTicks;
 int writeTicks;
 
@@ -46,7 +45,6 @@ void setup()
 
 void initializeVariables()
 {
-  accessPointTickets=0;
   readTicks=0;
   writeTicks=0;
   pinMode(INDICATOR,OUTPUT); 
@@ -94,8 +92,11 @@ void loop()
     writeTicks=0;
   }
 
+  if(communication.waitForData(&settings))
+      if(communication.initializeClient(&settings))
+        resetFunc();
+
   delay(5000);
-  accessPointTickets+=5;
   readTicks+=5;
   writeTicks+=5;
 }
